@@ -1,0 +1,43 @@
+select a.created_at as registration_time, 
+a.phone_number, b.user_name, q.language, ad.user_state
+from (select * from reporting_db.marketing_master where date(created_at) >= "2024-05-01" and final_source is null) a
+left join user b on a.user_id = b.id
+left join
+(SELECT user_id ,
+case when json_extract(questions_response, '$[0].question_response[0].options[0].field_text') is not null then
+json_unquote(json_extract(questions_response, '$[0].question_response[0].options[0].field_text')) else
+json_unquote(json_extract(questions_response, '$[0].options[0].option_text')) end as language
+from questionnaire_response where id in (SELECT max(id) from questionnaire_response group by user_id)) q
+on a.user_id= q.user_id
+-- address
+left join
+(SELECT user_id , state as user_state from user_address where id in (SELECT max(id) from user_address group by user_id)) ad
+on a.user_id= ad.user_id
+where  b.line_amount is null;
+
+select a.created_at as registration_time, 
+a.phone_number, b.user_name, q.language, ad.user_state
+from (select * from reporting_db.marketing_master where date(created_at) >= "2024-05-01" and coupon_code in ('E2CF8E2HJV','834QWXK964')) a
+left join user b on a.user_id = b.id
+left join
+(SELECT user_id ,
+case when json_extract(questions_response, '$[0].question_response[0].options[0].field_text') is not null then
+json_unquote(json_extract(questions_response, '$[0].question_response[0].options[0].field_text')) else
+json_unquote(json_extract(questions_response, '$[0].options[0].option_text')) end as language
+from questionnaire_response where id in (SELECT max(id) from questionnaire_response group by user_id)) q
+on a.user_id= q.user_id
+-- address
+left join
+(SELECT user_id , state as user_state from user_address where id in (SELECT max(id) from user_address group by user_id)) ad
+on a.user_id= ad.user_id
+-- bureau consent
+LEFT JOIN
+(SELECT user_id, consent_type, fl_consent from user_app_consent_master where id in (SELECT max(id) from user_app_consent_master 
+where consent_type = 'bureau'
+group by user_id)) ac
+on a.user_id = ac.user_id
+-- otp 
+LEFT JOIN
+(SELECT * from otp_api_partner_config where id in (SELECT max(id) from otp_api_partner_config where event = 'signup' group by user_id)) i1
+on a.user_id= i1.user_id
+where ac.fl_consent = 1 and (i1.fl_verified <> 1 or b.is_active <> 1)
